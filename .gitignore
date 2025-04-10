@@ -1,0 +1,11 @@
+# Ignore Python virtual environment
+.venv/
+
+# Ignore CSV files
+*.csv
+
+# Ignore Original images directory
+Original images/
+
+# Ignore test.jpg
+test.jpg
