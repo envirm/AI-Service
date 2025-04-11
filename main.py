@@ -12,7 +12,8 @@ from infra.mqtt.MQTT import mqtt_subscriber
 from aiomqtt import Client, MqttError
 from infra.schema.supasbase import supabase, AccessLog, SecurityWarning
 from datetime import datetime
-from infra.schema.enums import AccessAction  # Import the AccessAction enum
+from infra.schema.enums import AccessAction
+from infra.redis.pub import *  # Import the AccessAction enum
 
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
@@ -30,9 +31,12 @@ async def startup_event():
     On startup, start the MQTT subscriber task.
     """
     asyncio.create_task(mqtt_subscriber())
+    redisClient =init_redis_connection()
     print("MQTT subscriber task started.")
+    
 
-_, collection = init_chromadb_wrapper()
+    _, collection = init_chromadb_wrapper()
+    return redisClient, collection
 
 @app.get("/")
 def read_root():
@@ -49,7 +53,7 @@ def read_item(item_id: int, q: str = None):
     """
     return {"item_id": item_id, "q": q}
 
-@app.post("/publish/{msg}",response_model=200)
+@app.post("/publish/{msg}")
 async def publish_message(msg: str, background_tasks: BackgroundTasks):
     """
     Endpoint to publish a message to the MQTT topic.
@@ -77,15 +81,14 @@ async def recognize_face(lock_id: str, file: UploadFile = File(...)):
         with open(temp_file_path, "wb") as temp_file:
             shutil.copyfileobj(file.file, temp_file)
 
-        client= mqtt_subscriber()
         name,grade = search_faces(temp_file_path, collection)
         if grade != reauired:
-            await mqtt_subscriber.publish(f"noaccess")
-        await mqtt_subscriber.publish(f"access")
+            await publish_message(f"noaccess")
+        await publish_message(f"access")
 
         # Clean up the temporary file
         os.remove(temp_file_path)
-       
+        publish_message_R(redisClient, lock_id, f"access")    
 
         return JSONResponse(content={"status": "success", "message": "Face recognized successfully!"})
 
