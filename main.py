@@ -14,8 +14,10 @@ from infra.schema.supasbase import supabase, AccessLog, SecurityWarning
 from datetime import datetime
 from infra.schema.enums import AccessAction
 from infra.redis.pub import *  # Import the AccessAction enum
+from fastapi.middleware.cors import CORSMiddleware
+from handler.securityhand import securityWarning_handler, resolve_security_warning
 
-MQTT_BROKER = "localhost"
+MQTT_BROKER = "test.mosquitto.org"  # Replace with your MQTT broker address
 MQTT_PORT = 1883
 MQTT_TOPIC = "fastapi/topic"
 
@@ -25,18 +27,27 @@ app = FastAPI(
     description="A simple FastAPI project starter guide"
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 @app.on_event("startup")
 async def startup_event():
     """
     On startup, start the MQTT subscriber task.
     """
+    global collection  # Declare collection as a global variable
     asyncio.create_task(mqtt_subscriber())
-    redisClient =init_redis_connection()
+    global redisClient  # Declare redisClient as a global variable
+    redisClient = init_redis_connection()
     print("MQTT subscriber task started.")
-    
 
     _, collection = init_chromadb_wrapper()
-    return redisClient, collection
 
 @app.get("/")
 def read_root():
@@ -69,8 +80,10 @@ async def publish_message(msg: str, background_tasks: BackgroundTasks):
 
     background_tasks.add_task(publish)
     return {"status": "Publish initiated", "message": msg}
-
 @app.post("/recognize-face/{lock_id}")
+async def recognize_face(lock_id: str, file: UploadFile = File(...)):
+    global collection  # Access the global collection variable
+    global redisClient  # Access the global redisClient variable
 async def recognize_face(lock_id: str, file: UploadFile = File(...)):
     """
     Endpoint to perform face recognition on an uploaded image.
@@ -144,4 +157,26 @@ async def insert_security_warning(room_number: str, user_id: str, warning_type: 
         return JSONResponse(content={"status": "success", "message": "SecurityWarning inserted successfully!", "response": response.data})
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
-# grade we git it from mobile route grade/lock_id 
+
+@app.post("/security-warning/")
+async def create_security_warning(user_id: str, room_number: str):
+    """
+    Route to handle security warning creation.
+    """
+    try:
+        await securityWarning_handler(user_id, room_number)
+        return {"status": "success", "message": "Security warning created successfully."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.put("/security-warning/{warning_id}/resolve/")
+async def resolve_security_warning_route(warning_id: str):
+    """
+    Route to resolve a security warning.
+    """
+    try:
+        response = await resolve_security_warning(warning_id)
+        return {"status": "success", "message": "Security warning resolved successfully.", "data": response}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+# grade we git it from mobile route grade/lock_id
