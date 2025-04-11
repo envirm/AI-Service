@@ -97,6 +97,10 @@ async def recognize_face(lock_id: str, file: UploadFile = File(...)):
         name,grade = search_faces(temp_file_path, collection)
         if grade != reauired:
             await publish_message(f"noaccess")
+            publish_message_R(redisClient, lock_id, f"noaccess")
+            os.remove(temp_file_path)
+            return JSONResponse(content={"status": "error", "message": "Face not recognized!"}, status_code=300)
+        
         await publish_message(f"access")
 
         # Clean up the temporary file
@@ -179,4 +183,20 @@ async def resolve_security_warning_route(warning_id: str):
         return {"status": "success", "message": "Security warning resolved successfully.", "data": response}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.get("/security-warnings/")
+async def get_all_security_warnings():
+    """
+    Route to fetch all security warnings from Supabase.
+    """
+    try:
+        # Fetch all security warnings from the database
+        response = supabase.table("security_warnings").select("*").execute()
+        if response.data:
+            return JSONResponse(content={"status": "success", "data": response.data})
+        else:
+            return JSONResponse(content={"status": "success", "message": "No security warnings found."})
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
 # grade we git it from mobile route grade/lock_id

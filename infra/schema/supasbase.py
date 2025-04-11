@@ -13,6 +13,10 @@ load_dotenv()
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
+try:
+    supabase: Client = create_client(url, key)
+except Exception as e:
+    print(e)
 print("Supabase client created successfully.")
 
 # Generate a valid UUID for user_id
@@ -37,16 +41,18 @@ access_log = AccessLog(
 )
 
 # Insert AccessLog into Supabase
-access_log_response = supabase.table("access_logs").insert([
+try:
+    access_log_response = supabase.table("access_logs").insert([
     {
         "room_number": access_log.room_number,
         "user_id": access_log.userId,
         "action": access_log.action.value,  # Use the enum value
         "timestamp": datetime.utcnow().isoformat(),
     }
-]).execute()
-print("AccessLog inserted successfully:", access_log_response)
-
+    ]).execute()
+    print("AccessLog inserted successfully:", access_log_response)
+except Exception as e:
+    print(e)
 # Create an instance of SecurityWarning
 try:
     security_warning = SecurityWarning(

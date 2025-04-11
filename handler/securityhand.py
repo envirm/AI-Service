@@ -24,6 +24,7 @@ async def securityWarning_handler(user_id: str, room_number: str):
         
         # Publish a message to the Redis channel
         await publish_message_R("warning", security_warning.json())
+        
         print(f"Security warning for user {security_warning.userId} in room {security_warning.room_number}")
     except Exception as e:
         print(f"Error in securityWarning_handler: {e}")
