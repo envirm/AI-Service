@@ -80,39 +80,45 @@ async def publish_message(msg: str, background_tasks: BackgroundTasks):
 
     background_tasks.add_task(publish)
     return {"status": "Publish initiated", "message": msg}
+
 @app.post("/recognize-face/{lock_id}")
-async def recognize_face(lock_id: str, file: UploadFile = File(...)):
+async def recognize_face(lock_id: str, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     global collection  # Access the global collection variable
     global redisClient  # Access the global redisClient variable
-async def recognize_face(lock_id: str, file: UploadFile = File(...)):
-    """
-    Endpoint to perform face recognition on an uploaded image.
-    """
     try:
-        reauired= lock_id.split("/")[0]
+        print(f"lock_id: {lock_id}")
+        reauired = float(lock_id.split("-")[0])  # Convert reauired to a float
+        print(f"reauired: {reauired} (type: {type(reauired)})")
+
         temp_file_path = f"temp_{file.filename}"
         with open(temp_file_path, "wb") as temp_file:
             shutil.copyfileobj(file.file, temp_file)
+        print(f"Temp file path: {temp_file_path}")
+        name, grade = search_faces(temp_file_path, collection)
+        print(f"Search result: name={name}, grade={grade}")
 
-        name,grade = search_faces(temp_file_path, collection)
-        if grade != reauired:
-            await publish_message(f"noaccess")
+        # Access the value of 'grade' from the dictionary
+        actual_grade = float(grade.get("grade", 0))  # Convert to float for comparison
+        print(f"Actual grade: {actual_grade} (type: {type(actual_grade)})")
+
+        # Compare actual_grade to reauired
+        if actual_grade >= reauired:
+            print("Condition met: actual_grade >= reauired")
+            await publish_message(f"noaccess", background_tasks)  # Pass background_tasks
             publish_message_R(redisClient, lock_id, f"noaccess")
             os.remove(temp_file_path)
             return JSONResponse(content={"status": "error", "message": "Face not recognized!"}, status_code=300)
         
-        await publish_message(f"access")
-
-        # Clean up the temporary file
+        print("Condition not met: actual_grade < reauired")
+        await publish_message(f"access", background_tasks)  # Pass background_tasks
         os.remove(temp_file_path)
         publish_message_R(redisClient, lock_id, f"access")    
 
         return JSONResponse(content={"status": "success", "message": "Face recognized successfully!"})
 
     except Exception as e:
+        print(f"Error: {e}")
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
-
-   
 
 @app.post("/insert-access-log/")
 async def insert_access_log(room_number: str, user_id: str, action: AccessAction):
