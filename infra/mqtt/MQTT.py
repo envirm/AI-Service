@@ -14,7 +14,7 @@ from chromadb_init import init_chromadb_wrapper
 from chromadb.config import Settings
 from aiomqtt import Client, MqttError
 
-MQTT_BROKER = "172.20.10.3"  # Replace with your MQTT broker address
+MQTT_BROKER = "192.168.168.29"  # Replace with your MQTT broker address
 MQTT_PORT = 1883
 MQTT_TOPIC = "fastapi/topic"
 async def mqtt_subscriber() -> Client:

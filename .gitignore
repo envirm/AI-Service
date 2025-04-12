@@ -12,5 +12,6 @@ test.jpg
 
 # Ignore faces directory
 Faces/
+
 .env
 Original Images/
